@@ -5,20 +5,29 @@ use crate::error::{Error, Result};
 use crate::messages::*;
 use crate::protocol::PiperProtocol;
 use socketcan::{CanDataFrame, CanFrame, CanSocket, Socket, EmbeddedFrame, Frame};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time::Duration;
 
+/// Send command for the send thread
+struct SendCommand {
+    can_id: CanId,
+    data: Vec<u8>,
+}
+
 /// Main interface for Piper robot arm
 pub struct PiperInterface {
-    /// CAN socket
-    socket: Arc<Mutex<CanSocket>>,
     /// Protocol parser
     protocol: Arc<PiperProtocol>,
     /// CAN interface name
     interface_name: String,
     /// Receive thread handle
     _rx_thread: Option<thread::JoinHandle<()>>,
+    /// Send command channel
+    send_tx: Sender<SendCommand>,
+    /// Send thread handle
+    _tx_thread: Option<thread::JoinHandle<()>>,
 }
 
 impl PiperInterface {
@@ -36,67 +45,102 @@ impl PiperInterface {
     /// let piper = PiperInterface::new("can0").unwrap();
     /// ```
     pub fn new(interface_name: &str) -> Result<Self> {
-        // Open CAN socket
-        let socket = CanSocket::open(interface_name).map_err(|e| {
-            Error::CanError(format!("Failed to open CAN interface '{}': {}", interface_name, e))
-        })?;
-        
-        // Set read timeout
-        socket
-            .set_read_timeout(Duration::from_millis(100))
-            .map_err(|e| Error::IoError(e))?;
-        
-        let socket = Arc::new(Mutex::new(socket));
         let protocol = Arc::new(PiperProtocol::new());
         
-        // Start receive thread
-        let rx_thread = {
-            let socket = Arc::clone(&socket);
-            let protocol = Arc::clone(&protocol);
+        // Create send thread with dedicated socket
+        let (send_tx, send_rx) = channel::<SendCommand>();
+        let tx_interface_name = interface_name.to_string();
+        let tx_thread = thread::spawn(move || {
+            // Open dedicated socket for sending in this thread
+            let tx_socket = match CanSocket::open(&tx_interface_name) {
+                Ok(s) => s,
+                Err(e) => {
+                    log::error!("Failed to open send socket: {}", e);
+                    return;
+                }
+            };
             
-            thread::spawn(move || {
-                loop {
-                    let frame = {
-                        let sock = socket.lock()
-                            .expect("Mutex poisoned - cannot access CAN socket");
-                        sock.read_frame()
-                    };
-                    
-                    match frame {
-                        Ok(frame) => {
-                            // Extract ID and data based on frame type
-                            match frame {
-                                CanFrame::Data(data_frame) => {
-                                    let id = data_frame.raw_id();
-                                    let data = data_frame.data();
-                                    
-                                    if let Err(e) = protocol.process_message(id, data) {
-                                        log::debug!("Error processing message: {}", e);
-                                    }
+            loop {
+                match send_rx.recv() {
+                    Ok(cmd) => {
+                        // Create CAN frame and send
+                        if let Some(socketcan_id) = socketcan::StandardId::new(cmd.can_id.as_u32() as u16) {
+                            if let Some(data_frame) = CanDataFrame::new(socketcan_id, &cmd.data) {
+                                let frame = CanFrame::Data(data_frame);
+                                if let Err(e) = tx_socket.write_frame(&frame) {
+                                    log::error!("Failed to send CAN frame: {}", e);
                                 }
-                                _ => {
-                                    // Ignore remote and error frames
-                                }
+                            } else {
+                                log::error!("Failed to create CAN data frame");
                             }
-                        }
-                        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                            // Timeout, continue
-                            thread::sleep(Duration::from_millis(1));
-                        }
-                        Err(e) => {
-                            log::error!("Error reading CAN frame: {}", e);
-                            thread::sleep(Duration::from_millis(10));
+                        } else {
+                            log::error!("Invalid CAN ID: {}", cmd.can_id.as_u32());
                         }
                     }
+                    Err(_) => {
+                        // Channel closed, exit thread
+                        break;
+                    }
                 }
-            })
-        };
+            }
+        });
+        
+        // Start receive thread with its own socket
+        let rx_interface_name = interface_name.to_string();
+        let rx_protocol = Arc::clone(&protocol);
+        let rx_thread = thread::spawn(move || {
+            // Open dedicated socket for reading in this thread
+            let rx_socket = match CanSocket::open(&rx_interface_name) {
+                Ok(s) => {
+                    // Set read timeout
+                    if let Err(e) = s.set_read_timeout(Duration::from_millis(100)) {
+                        log::error!("Failed to set read timeout: {}", e);
+                        return;
+                    }
+                    s
+                }
+                Err(e) => {
+                    log::error!("Failed to open receive socket: {}", e);
+                    return;
+                }
+            };
+            
+            loop {
+                match rx_socket.read_frame() {
+                    Ok(frame) => {
+                        // Extract ID and data based on frame type
+                        match frame {
+                            CanFrame::Data(data_frame) => {
+                                let id = data_frame.raw_id();
+                                let data = data_frame.data();
+                                
+                                if let Err(e) = rx_protocol.process_message(id, data) {
+                                    log::debug!("Error processing message: {}", e);
+                                }
+                            }
+                            _ => {
+                                // Ignore remote and error frames
+                            }
+                        }
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        // Timeout, continue
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(e) => {
+                        log::error!("Error reading CAN frame: {}", e);
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                }
+            }
+        });
         
         Ok(Self {
-            socket,
             protocol,
             interface_name: interface_name.to_string(),
             _rx_thread: Some(rx_thread),
+            send_tx,
+            _tx_thread: Some(tx_thread),
         })
     }
     
@@ -316,23 +360,16 @@ impl PiperInterface {
     
     /// Send a CAN frame
     /// 
-    /// Optimized for real-time performance by minimizing allocations
+    /// Sends frames via dedicated send thread for better real-time performance.
+    /// The send operation is non-blocking.
     fn send_frame(&self, can_id: CanId, data: &[u8]) -> Result<()> {
-        // Create a socketcan ID from u32
-        // All Piper CAN IDs are standard 11-bit IDs (< 0x800), safe to cast to u16
-        let socketcan_id = socketcan::StandardId::new(can_id.as_u32() as u16)
-            .ok_or_else(|| Error::CanError("Invalid CAN ID".to_string()))?;
+        let cmd = SendCommand {
+            can_id,
+            data: data.to_vec(),
+        };
         
-        // Create data frame directly without intermediate variables for better performance
-        let data_frame = CanDataFrame::new(socketcan_id, data)
-            .ok_or_else(|| Error::CanError("Failed to create CAN frame".to_string()))?;
-        
-        // Acquire lock and send in single operation
-        let socket = self.socket.lock()
-            .expect("Mutex poisoned - cannot access CAN socket");
-        socket
-            .write_frame(&CanFrame::Data(data_frame))
-            .map_err(|e| Error::CanError(format!("Failed to send CAN frame: {}", e)))?;
+        self.send_tx.send(cmd)
+            .map_err(|_| Error::CanError("Send thread disconnected".to_string()))?;
         
         Ok(())
     }
