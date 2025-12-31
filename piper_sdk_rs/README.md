@@ -226,18 +226,6 @@ cargo run --example mit_control
 
 # End effector pose control
 cargo run --example end_pose_control
-
-# Control robot joints
-cargo run --example control_joints
-
-# Control gripper
-cargo run --example control_gripper
-
-# MIT control mode (advanced)
-cargo run --example mit_control
-
-# End effector pose control
-cargo run --example end_pose_control
 ```
 
 ## API Documentation
