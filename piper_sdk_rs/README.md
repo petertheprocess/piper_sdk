@@ -9,6 +9,9 @@ This is a Rust implementation of the Piper robot arm SDK using the `socketcan` c
 - **Asynchronous Reading**: Background thread continuously reads CAN messages
 - **Easy-to-Use API**: Simple interface matching the Python SDK functionality
 - **Zero-Cost Abstractions**: Efficient Rust implementation with minimal overhead
+- **MIT Control Mode**: Advanced torque control for individual joints
+- **Cartesian Control**: End effector position and orientation control
+- **Multiple Control Modes**: Position, velocity, MIT, and hybrid control
 
 ## Prerequisites
 
@@ -138,7 +141,54 @@ fn main() -> Result<()> {
 }
 ```
 
-### 4. Control Gripper
+### 4. MIT Control (Advanced)
+
+**⚠️ WARNING**: MIT mode is an advanced feature for torque control. Incorrect use can damage the robot!
+
+```rust
+use piper_sdk_rs::{JointMitControl, PiperInterface, Result};
+
+fn main() -> Result<()> {
+    let piper = PiperInterface::new("can0")?;
+    
+    // Enable MIT mode
+    piper.enable_mit_mode(true)?;
+    
+    // Control motor 1 with position, velocity, and gains
+    let mit_ctrl = JointMitControl::new(
+        1,      // motor_num
+        0.5,    // pos_ref (rad)
+        0.0,    // vel_ref (rad/s)
+        10.0,   // kp (proportional gain)
+        0.8,    // kd (derivative gain)
+        0.0,    // t_ref (torque in Nm)
+    );
+    piper.send_joint_mit_control(&mit_ctrl)?;
+    
+    Ok(())
+}
+```
+
+### 5. End Pose Control (Cartesian)
+
+```rust
+use piper_sdk_rs::{EndPoseControl, PiperInterface, Result};
+
+fn main() -> Result<()> {
+    let piper = PiperInterface::new("can0")?;
+    
+    // Set to Cartesian control mode
+    piper.set_mode(0x01, 0x00, 50)?;
+    
+    // Move to position (X, Y, Z in mm, RX, RY, RZ in mrad)
+    let pose = EndPoseControl::new(300, 0, 200, 0, 0, 0);
+    piper.send_end_pose_control(&pose)?;
+    
+    Ok(())
+}
+```
+
+### 6. Control Gripper
 
 ```rust
 use piper_sdk_rs::{GripperControl, PiperInterface, Result};
@@ -170,6 +220,24 @@ cargo run --example control_joints
 
 # Control gripper
 cargo run --example control_gripper
+
+# MIT control mode (advanced)
+cargo run --example mit_control
+
+# End effector pose control
+cargo run --example end_pose_control
+
+# Control robot joints
+cargo run --example control_joints
+
+# Control gripper
+cargo run --example control_gripper
+
+# MIT control mode (advanced)
+cargo run --example mit_control
+
+# End effector pose control
+cargo run --example end_pose_control
 ```
 
 ## API Documentation
@@ -179,6 +247,33 @@ Generate and view the API documentation:
 ```bash
 cargo doc --open
 ```
+
+### Key Types
+
+#### Control Commands
+
+- **`JointControl`** - Position control for all 6 joints
+- **`JointMitControl`** - MIT mode control for individual joints (position + velocity + torque)
+- **`EndPoseControl`** - Cartesian coordinate control (X, Y, Z, RX, RY, RZ)
+- **`GripperControl`** - Gripper position and speed control
+- **`MotionCtrl2`** - Motion mode and MIT enable/disable
+
+#### Feedback Messages
+
+- **`JointState`** - Joint angles for all 6 joints
+- **`GripperState`** - Gripper position and status
+- **`EndPose`** - End effector position and orientation
+- **`ArmStatus`** - Arm control mode and error codes
+
+### Control Modes
+
+The SDK supports multiple control modes:
+
+1. **Position Control** - Standard joint angle control
+2. **Cartesian Control** - End effector X, Y, Z, RX, RY, RZ
+3. **MIT Control** - Advanced torque control with impedance
+4. **Velocity Control** - Via MIT mode with velocity commands
+5. **Hybrid Control** - Combine position, velocity, and torque in MIT mode
 
 ## Architecture
 

@@ -28,4 +28,7 @@ pub mod protocol;
 
 pub use error::{Error, Result};
 pub use interface::PiperInterface;
-pub use messages::*;
+pub use messages::{
+    ArmStatus, EndPose, EndPoseControl, GripperControl, GripperState, 
+    JointControl, JointMitControl, JointState, MotionCtrl2
+};

@@ -144,6 +144,114 @@ impl PiperInterface {
         Ok(())
     }
     
+    /// Send MIT control command for a single joint
+    ///
+    /// # Arguments
+    ///
+    /// * `control` - MIT control parameters for one joint
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use piper_sdk_rs::{PiperInterface, JointMitControl};
+    ///
+    /// let piper = PiperInterface::new("can0").unwrap();
+    /// 
+    /// // Enable MIT mode first
+    /// piper.enable_mit_mode(true).unwrap();
+    ///
+    /// // Control motor 1 with MIT parameters
+    /// let mit_ctrl = JointMitControl::new(1, 0.5, 0.0, 10.0, 0.8, 0.0);
+    /// piper.send_joint_mit_control(&mit_ctrl).unwrap();
+    /// ```
+    pub fn send_joint_mit_control(&self, control: &JointMitControl) -> Result<()> {
+        if control.motor_num < 1 || control.motor_num > 6 {
+            return Err(Error::InvalidMessage(
+                format!("Motor number {} out of range (1-6)", control.motor_num)
+            ));
+        }
+        
+        let data = control.to_can_data();
+        let can_id = match control.motor_num {
+            1 => CanId::ArmJointMitCtrl1,
+            2 => CanId::ArmJointMitCtrl2,
+            3 => CanId::ArmJointMitCtrl3,
+            4 => CanId::ArmJointMitCtrl4,
+            5 => CanId::ArmJointMitCtrl5,
+            6 => CanId::ArmJointMitCtrl6,
+            _ => unreachable!(),
+        };
+        
+        self.send_frame(can_id, &data)?;
+        Ok(())
+    }
+    
+    /// Send end pose control command (Cartesian coordinates)
+    ///
+    /// # Arguments
+    ///
+    /// * `control` - End pose control with position and orientation
+    pub fn send_end_pose_control(&self, control: &EndPoseControl) -> Result<()> {
+        let can_data = control.to_can_data();
+        
+        // Send three CAN frames for X, Y, Z, RX, RY, RZ
+        self.send_frame(CanId::ArmMotionCtrlCartesian1, &can_data[0])?;
+        self.send_frame(CanId::ArmMotionCtrlCartesian2, &can_data[1])?;
+        self.send_frame(CanId::ArmMotionCtrlCartesian3, &can_data[2])?;
+        
+        Ok(())
+    }
+    
+    /// Send motion control 2 command
+    ///
+    /// # Arguments
+    ///
+    /// * `control` - Motion control settings including mode and MIT enable
+    pub fn send_motion_ctrl_2(&self, control: &MotionCtrl2) -> Result<()> {
+        let data = control.to_can_data();
+        self.send_frame(CanId::ArmMotionCtrl2, &data)?;
+        Ok(())
+    }
+    
+    /// Enable or disable MIT mode
+    ///
+    /// # Arguments
+    ///
+    /// * `enable` - true to enable MIT mode, false for position/velocity mode
+    pub fn enable_mit_mode(&self, enable: bool) -> Result<()> {
+        let is_mit_mode = if enable { 0xAD } else { 0x00 };
+        let ctrl = MotionCtrl2::new(0x01, 0x04, 50, is_mit_mode);
+        self.send_motion_ctrl_2(&ctrl)?;
+        Ok(())
+    }
+    
+    /// Set control mode
+    ///
+    /// # Arguments
+    ///
+    /// * `ctrl_mode` - Control mode (0x00=standby, 0x01=CAN)
+    /// * `move_mode` - Move mode (0x00=P, 0x01=J, 0x02=L, 0x03=C, 0x04=M)
+    /// * `speed_rate` - Speed percentage (0-100)
+    pub fn set_mode(&self, ctrl_mode: u8, move_mode: u8, speed_rate: u8) -> Result<()> {
+        let ctrl = MotionCtrl2::new(ctrl_mode, move_mode, speed_rate, 0x00);
+        self.send_motion_ctrl_2(&ctrl)?;
+        Ok(())
+    }
+    
+    /// Emergency stop
+    pub fn emergency_stop(&self) -> Result<()> {
+        let data = vec![0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        self.send_frame(CanId::ArmMotionCtrl1, &data)?;
+        Ok(())
+    }
+    
+    /// Reset the robot arm
+    pub fn reset(&self) -> Result<()> {
+        let data = vec![0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        self.send_frame(CanId::ArmMotionCtrl1, &data)?;
+        Ok(())
+    }
+    
     /// Send a gripper control command
     ///
     /// # Arguments
