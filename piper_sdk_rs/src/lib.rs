@@ -30,5 +30,6 @@ pub use error::{Error, Result};
 pub use interface::PiperInterface;
 pub use messages::{
     ArmStatus, EndPose, EndPoseControl, GripperControl, GripperState, 
-    JointControl, JointMitControl, JointState, MotionCtrl2
+    JointControl, JointMitControl, JointState, MotionCtrl2,
+    MotorHighSpeedFeedback, MotorLowSpeedFeedback
 };

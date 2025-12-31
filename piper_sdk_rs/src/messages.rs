@@ -411,6 +411,180 @@ impl EndPoseControl {
     }
 }
 
+/// Motor high-speed feedback information
+#[derive(Debug, Clone)]
+pub struct MotorHighSpeedFeedback {
+    /// CAN ID (0x251-0x256)
+    pub can_id: u32,
+    /// Motor speed in rad/s (unit: 0.001 rad/s)
+    pub motor_speed: i16,
+    /// Motor current in A (unit: 0.001 A)
+    pub current: u16,
+    /// Motor position in radians
+    pub position: i32,
+    /// Motor effort/torque in N/m (unit: 0.001 N/m)
+    pub effort: f32,
+    /// Timestamp
+    pub timestamp: f64,
+}
+
+impl MotorHighSpeedFeedback {
+    /// Create new high-speed feedback
+    pub fn new() -> Self {
+        Self {
+            can_id: 0,
+            motor_speed: 0,
+            current: 0,
+            position: 0,
+            effort: 0.0,
+            timestamp: 0.0,
+        }
+    }
+    
+    /// Parse from CAN data
+    pub fn from_can_data(can_id: u32, data: &[u8]) -> Result<Self> {
+        if data.len() < 8 {
+            return Err(Error::InvalidMessage("Invalid high-speed feedback data length".to_string()));
+        }
+        
+        let motor_speed = i16::from_be_bytes([data[0], data[1]]);
+        let current = u16::from_be_bytes([data[2], data[3]]);
+        let position = i32::from_be_bytes([data[4], data[5], data[6], data[7]]);
+        
+        // Calculate effort based on motor (joints 1-3 use coefficient 1.18125, joints 4-6 use 0.95844)
+        let coefficient = match can_id {
+            0x251 | 0x252 | 0x253 => 1.18125,
+            0x254 | 0x255 | 0x256 => 0.95844,
+            _ => 1.0,
+        };
+        let effort = (current as f32) * coefficient;
+        
+        Ok(Self {
+            can_id,
+            motor_speed,
+            current,
+            position,
+            effort,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("System time is before UNIX epoch")
+                .as_secs_f64(),
+        })
+    }
+}
+
+impl Default for MotorHighSpeedFeedback {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Motor low-speed feedback information
+#[derive(Debug, Clone)]
+pub struct MotorLowSpeedFeedback {
+    /// CAN ID (0x261-0x266)
+    pub can_id: u32,
+    /// Bus voltage in V (unit: 0.1 V)
+    pub voltage: u16,
+    /// Driver temperature in °C
+    pub driver_temp: i16,
+    /// Motor temperature in °C
+    pub motor_temp: i8,
+    /// Driver status byte
+    pub driver_status: u8,
+    /// Bus current in A (unit: 0.001 A)
+    pub bus_current: u16,
+    /// Timestamp
+    pub timestamp: f64,
+}
+
+impl MotorLowSpeedFeedback {
+    /// Create new low-speed feedback
+    pub fn new() -> Self {
+        Self {
+            can_id: 0,
+            voltage: 0,
+            driver_temp: 0,
+            motor_temp: 0,
+            driver_status: 0,
+            bus_current: 0,
+            timestamp: 0.0,
+        }
+    }
+    
+    /// Parse from CAN data
+    pub fn from_can_data(can_id: u32, data: &[u8]) -> Result<Self> {
+        if data.len() < 8 {
+            return Err(Error::InvalidMessage("Invalid low-speed feedback data length".to_string()));
+        }
+        
+        let voltage = u16::from_be_bytes([data[0], data[1]]);
+        let driver_temp = i16::from_be_bytes([data[2], data[3]]);
+        let motor_temp = data[4] as i8;
+        let driver_status = data[5];
+        let bus_current = u16::from_be_bytes([data[6], data[7]]);
+        
+        Ok(Self {
+            can_id,
+            voltage,
+            driver_temp,
+            motor_temp,
+            driver_status,
+            bus_current,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("System time is before UNIX epoch")
+                .as_secs_f64(),
+        })
+    }
+    
+    /// Check if voltage is too low (bit 0)
+    pub fn is_voltage_too_low(&self) -> bool {
+        (self.driver_status & (1 << 0)) != 0
+    }
+    
+    /// Check if motor is overheating (bit 1)
+    pub fn is_motor_overheating(&self) -> bool {
+        (self.driver_status & (1 << 1)) != 0
+    }
+    
+    /// Check if driver is overcurrent (bit 2)
+    pub fn is_driver_overcurrent(&self) -> bool {
+        (self.driver_status & (1 << 2)) != 0
+    }
+    
+    /// Check if driver is overheating (bit 3)
+    pub fn is_driver_overheating(&self) -> bool {
+        (self.driver_status & (1 << 3)) != 0
+    }
+    
+    /// Check collision status (bit 4)
+    pub fn is_collision_triggered(&self) -> bool {
+        (self.driver_status & (1 << 4)) != 0
+    }
+    
+    /// Check driver error status (bit 5)
+    pub fn is_driver_error(&self) -> bool {
+        (self.driver_status & (1 << 5)) != 0
+    }
+    
+    /// Check if driver is enabled (bit 6)
+    pub fn is_driver_enabled(&self) -> bool {
+        (self.driver_status & (1 << 6)) != 0
+    }
+    
+    /// Check stall status (bit 7)
+    pub fn is_stall_triggered(&self) -> bool {
+        (self.driver_status & (1 << 7)) != 0
+    }
+}
+
+impl Default for MotorLowSpeedFeedback {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Gripper control command
 #[derive(Debug, Clone)]
 pub struct GripperControl {

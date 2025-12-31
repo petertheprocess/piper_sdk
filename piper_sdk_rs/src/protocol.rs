@@ -28,6 +28,12 @@ struct MessageBuffer {
     gripper_state: Option<GripperState>,
     end_pose: Option<EndPose>,
     arm_status: Option<ArmStatus>,
+    
+    /// Motor high-speed feedback (6 motors)
+    motor_high_speed: [Option<MotorHighSpeedFeedback>; 6],
+    
+    /// Motor low-speed feedback (6 motors)
+    motor_low_speed: [Option<MotorLowSpeedFeedback>; 6],
 }
 
 impl MessageBuffer {
@@ -43,6 +49,8 @@ impl MessageBuffer {
             gripper_state: None,
             end_pose: None,
             arm_status: None,
+            motor_high_speed: [None, None, None, None, None, None],
+            motor_low_speed: [None, None, None, None, None, None],
         }
     }
 }
@@ -92,6 +100,44 @@ impl PiperProtocol {
             }
             Some(CanId::ArmStatusFeedback) => {
                 buffer.arm_status = Some(ArmStatus::from_can_data(data)?);
+            }
+            // High-speed motor feedback (0x251-0x256)
+            Some(CanId::ArmInfoHighSpdFeedback1) => {
+                buffer.motor_high_speed[0] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoHighSpdFeedback2) => {
+                buffer.motor_high_speed[1] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoHighSpdFeedback3) => {
+                buffer.motor_high_speed[2] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoHighSpdFeedback4) => {
+                buffer.motor_high_speed[3] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoHighSpdFeedback5) => {
+                buffer.motor_high_speed[4] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoHighSpdFeedback6) => {
+                buffer.motor_high_speed[5] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            // Low-speed motor feedback (0x261-0x266)
+            Some(CanId::ArmInfoLowSpdFeedback1) => {
+                buffer.motor_low_speed[0] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoLowSpdFeedback2) => {
+                buffer.motor_low_speed[1] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoLowSpdFeedback3) => {
+                buffer.motor_low_speed[2] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoLowSpdFeedback4) => {
+                buffer.motor_low_speed[3] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoLowSpdFeedback5) => {
+                buffer.motor_low_speed[4] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+            }
+            Some(CanId::ArmInfoLowSpdFeedback6) => {
+                buffer.motor_low_speed[5] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
             }
             _ => {
                 // Unknown or unhandled message ID
@@ -152,6 +198,26 @@ impl PiperProtocol {
         self.message_buffer.lock()
             .expect("Mutex poisoned - cannot access message buffer")
             .arm_status.clone()
+    }
+    
+    /// Get high-speed feedback for a specific motor (1-6)
+    pub fn get_motor_high_speed(&self, motor_num: usize) -> Option<MotorHighSpeedFeedback> {
+        if motor_num < 1 || motor_num > 6 {
+            return None;
+        }
+        self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer")
+            .motor_high_speed[motor_num - 1].clone()
+    }
+    
+    /// Get low-speed feedback for a specific motor (1-6)
+    pub fn get_motor_low_speed(&self, motor_num: usize) -> Option<MotorLowSpeedFeedback> {
+        if motor_num < 1 || motor_num > 6 {
+            return None;
+        }
+        self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer")
+            .motor_low_speed[motor_num - 1].clone()
     }
 }
 

@@ -128,6 +128,28 @@ impl PiperInterface {
         Ok(self.protocol.get_arm_status())
     }
     
+    /// Get high-speed feedback for a specific motor
+    ///
+    /// # Arguments
+    ///
+    /// * `motor_num` - Motor number (1-6)
+    ///
+    /// Returns None if no feedback has been received yet or motor_num is invalid
+    pub fn get_motor_high_speed(&self, motor_num: usize) -> Result<Option<MotorHighSpeedFeedback>> {
+        Ok(self.protocol.get_motor_high_speed(motor_num))
+    }
+    
+    /// Get low-speed feedback for a specific motor
+    ///
+    /// # Arguments
+    ///
+    /// * `motor_num` - Motor number (1-6)
+    ///
+    /// Returns None if no feedback has been received yet or motor_num is invalid
+    pub fn get_motor_low_speed(&self, motor_num: usize) -> Result<Option<MotorLowSpeedFeedback>> {
+        Ok(self.protocol.get_motor_low_speed(motor_num))
+    }
+    
     /// Send a joint control command
     ///
     /// # Arguments
