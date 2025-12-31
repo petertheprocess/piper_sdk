@@ -308,9 +308,9 @@ impl JointMitControl {
         data[6] = (((kd_tmp & 0x0F) << 4) | ((t_tmp >> 4) & 0x0F)) as u8;
         
         // Byte 7: t_ref[3:0] | CRC[3:0]
-        // CRC is set to 0 as per Python SDK implementation (not currently validated by firmware)
-        let crc = 0;
-        data[7] = (((t_tmp & 0x0F) << 4) | (crc & 0x0F)) as u8;
+        // CRC is XOR of bytes 0-6, masked to 4 bits
+        let crc = (data[0] ^ data[1] ^ data[2] ^ data[3] ^ data[4] ^ data[5] ^ data[6]) & 0x0F;
+        data[7] = ((((t_tmp & 0x0F) as u8) << 4) | crc) as u8;
         
         data
     }

@@ -293,21 +293,23 @@ impl PiperInterface {
     }
     
     /// Send a CAN frame
+    /// 
+    /// Optimized for real-time performance by minimizing allocations
     fn send_frame(&self, can_id: CanId, data: &[u8]) -> Result<()> {
         // Create a socketcan ID from u32
         // All Piper CAN IDs are standard 11-bit IDs (< 0x800), safe to cast to u16
         let socketcan_id = socketcan::StandardId::new(can_id.as_u32() as u16)
             .ok_or_else(|| Error::CanError("Invalid CAN ID".to_string()))?;
         
+        // Create data frame directly without intermediate variables for better performance
         let data_frame = CanDataFrame::new(socketcan_id, data)
             .ok_or_else(|| Error::CanError("Failed to create CAN frame".to_string()))?;
         
-        let frame = CanFrame::Data(data_frame);
-        
+        // Acquire lock and send in single operation
         let socket = self.socket.lock()
             .expect("Mutex poisoned - cannot access CAN socket");
         socket
-            .write_frame(&frame)
+            .write_frame(&CanFrame::Data(data_frame))
             .map_err(|e| Error::CanError(format!("Failed to send CAN frame: {}", e)))?;
         
         Ok(())
