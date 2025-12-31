@@ -8,3 +8,9 @@ __pycache__
 piper_sdk.egg-info
 dist
 build
+
+# Rust
+piper_sdk_rs/target/
+piper_sdk_rs/Cargo.lock
+**/*.rs.bk
+*.pdb
