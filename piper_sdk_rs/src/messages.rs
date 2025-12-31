@@ -310,7 +310,7 @@ impl JointMitControl {
         // Byte 7: t_ref[3:0] | CRC[3:0]
         // CRC is XOR of bytes 0-6, masked to 4 bits
         let crc = (data[0] ^ data[1] ^ data[2] ^ data[3] ^ data[4] ^ data[5] ^ data[6]) & 0x0F;
-        data[7] = ((((t_tmp & 0x0F) as u8) << 4) | crc) as u8;
+        data[7] = (((t_tmp & 0x0F) << 4) as u8) | crc;
         
         data
     }
