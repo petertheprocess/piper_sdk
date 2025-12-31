@@ -13,7 +13,8 @@ use std::time::Duration;
 /// Send command for the send thread
 struct SendCommand {
     can_id: CanId,
-    data: Vec<u8>,
+    data: [u8; 8],
+    len: usize,
 }
 
 /// Main interface for Piper robot arm
@@ -65,7 +66,7 @@ impl PiperInterface {
                     Ok(cmd) => {
                         // Create CAN frame and send
                         if let Some(socketcan_id) = socketcan::StandardId::new(cmd.can_id.as_u32() as u16) {
-                            if let Some(data_frame) = CanDataFrame::new(socketcan_id, &cmd.data) {
+                            if let Some(data_frame) = CanDataFrame::new(socketcan_id, &cmd.data[..cmd.len]) {
                                 let frame = CanFrame::Data(data_frame);
                                 if let Err(e) = tx_socket.write_frame(&frame) {
                                     log::error!("Failed to send CAN frame: {}", e);
@@ -363,9 +364,14 @@ impl PiperInterface {
     /// Sends frames via dedicated send thread for better real-time performance.
     /// The send operation is non-blocking.
     fn send_frame(&self, can_id: CanId, data: &[u8]) -> Result<()> {
+        let mut buf = [0u8; 8];
+        let len = data.len().min(8);
+        buf[..len].copy_from_slice(&data[..len]);
+        
         let cmd = SendCommand {
             can_id,
-            data: data.to_vec(),
+            data: buf,
+            len,
         };
         
         self.send_tx.send(cmd)
