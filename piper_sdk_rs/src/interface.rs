@@ -57,7 +57,8 @@ impl PiperInterface {
             thread::spawn(move || {
                 loop {
                     let frame = {
-                        let sock = socket.lock().unwrap();
+                        let sock = socket.lock()
+                            .expect("Mutex poisoned - cannot access CAN socket");
                         sock.read_frame()
                     };
                     
@@ -186,6 +187,7 @@ impl PiperInterface {
     /// Send a CAN frame
     fn send_frame(&self, can_id: CanId, data: &[u8]) -> Result<()> {
         // Create a socketcan ID from u32
+        // All Piper CAN IDs are standard 11-bit IDs (< 0x800), safe to cast to u16
         let socketcan_id = socketcan::StandardId::new(can_id.as_u32() as u16)
             .ok_or_else(|| Error::CanError("Invalid CAN ID".to_string()))?;
         
@@ -194,7 +196,8 @@ impl PiperInterface {
         
         let frame = CanFrame::Data(data_frame);
         
-        let socket = self.socket.lock().unwrap();
+        let socket = self.socket.lock()
+            .expect("Mutex poisoned - cannot access CAN socket");
         socket
             .write_frame(&frame)
             .map_err(|e| Error::CanError(format!("Failed to send CAN frame: {}", e)))?;

@@ -38,7 +38,7 @@ impl JointState {
             angles: [j1, j2, j3, j4, j5, j6],
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("System time is before UNIX epoch")
                 .as_secs_f64(),
         })
     }
@@ -85,7 +85,7 @@ impl GripperState {
             status,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("System time is before UNIX epoch")
                 .as_secs_f64(),
         })
     }
@@ -137,7 +137,7 @@ impl EndPose {
             orientation: [rx, ry, rz],
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("System time is before UNIX epoch")
                 .as_secs_f64(),
         })
     }
@@ -189,7 +189,7 @@ impl ArmStatus {
             err_code,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("System time is before UNIX epoch")
                 .as_secs_f64(),
         })
     }

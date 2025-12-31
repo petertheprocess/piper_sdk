@@ -59,7 +59,8 @@ impl PiperProtocol {
     pub fn process_message(&self, can_id: u32, data: &[u8]) -> Result<()> {
         let id = CanId::from_u32(can_id);
         
-        let mut buffer = self.message_buffer.lock().unwrap();
+        let mut buffer = self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer");
         
         match id {
             Some(CanId::ArmJointFeedback12) => {
@@ -127,22 +128,30 @@ impl PiperProtocol {
     
     /// Get the latest joint state
     pub fn get_joint_state(&self) -> Option<JointState> {
-        self.message_buffer.lock().unwrap().joint_state.clone()
+        self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer")
+            .joint_state.clone()
     }
     
     /// Get the latest gripper state
     pub fn get_gripper_state(&self) -> Option<GripperState> {
-        self.message_buffer.lock().unwrap().gripper_state.clone()
+        self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer")
+            .gripper_state.clone()
     }
     
     /// Get the latest end pose
     pub fn get_end_pose(&self) -> Option<EndPose> {
-        self.message_buffer.lock().unwrap().end_pose.clone()
+        self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer")
+            .end_pose.clone()
     }
     
     /// Get the latest arm status
     pub fn get_arm_status(&self) -> Option<ArmStatus> {
-        self.message_buffer.lock().unwrap().arm_status.clone()
+        self.message_buffer.lock()
+            .expect("Mutex poisoned - cannot access message buffer")
+            .arm_status.clone()
     }
 }
 
