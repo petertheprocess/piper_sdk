@@ -16,6 +16,11 @@ from typing import Callable, Iterable, List, Optional
 
 import can
 
+try:  # Optional MuJoCo support
+    import mujoco
+except Exception:  # pragma: no cover
+    mujoco = None
+
 from piper_sdk.piper_msgs.msg_v2 import (
     ArmMessageMapping,
     ArmMsgFeedBackJointStates,
@@ -279,3 +284,61 @@ class PiperSimInterface:
 
 
 __all__ = ["PiperSimInterface"]
+
+
+class PiperMujocoAdapter:
+    """
+    Minimal MuJoCo bridge for PiperSimInterface.
+
+    Assumes mjcf has position-controlled motors aligned with provided joint_names.
+    - Position cmds map to actuator ctrl in radians.
+    - MIT cmds prefer torque (t_ref) if provided, otherwise position.
+    """
+
+    def __init__(self, model, data, joint_names: List[str]):
+        if mujoco is None:  # pragma: no cover
+            raise ImportError("mujoco is required for PiperMujocoAdapter")
+        if len(joint_names) < NUM_JOINTS:
+            raise ValueError("joint_names must provide at least 6 joint names")
+        self.model = model
+        self.data = data
+        self.joint_names = joint_names[:NUM_JOINTS]
+        self._qpos_indices = [self._joint_qpos_index(name) for name in self.joint_names]
+        self._actuator_indices = [self._actuator_index(name) for name in self.joint_names]
+
+    def _joint_qpos_index(self, name: str) -> int:
+        jnt_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        if jnt_id < 0:
+            raise ValueError(f"joint {name} not found in model")
+        return self.model.jnt_qposadr[jnt_id]
+
+    def _actuator_index(self, name: str) -> int:
+        act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+        if act_id < 0:
+            raise ValueError(f"actuator {name} not found in model")
+        return act_id
+
+    def apply_position_targets(self, joint_targets_md: List[int]) -> None:
+        for i, act_id in enumerate(self._actuator_indices):
+            if i >= len(joint_targets_md):
+                break
+            self.data.ctrl[act_id] = math.radians(joint_targets_md[i] / 1000.0)
+
+    def apply_mit(self, motor_idx: int, mit_cmd: ArmMsgJointMitCtrl) -> None:
+        if motor_idx >= len(self._actuator_indices):
+            return
+        act_id = self._actuator_indices[motor_idx]
+        # Prefer torque if provided, else position
+        if mit_cmd.t_ref is not None:
+            self.data.ctrl[act_id] = mit_cmd.t_ref
+        elif mit_cmd.pos_ref is not None:
+            self.data.ctrl[act_id] = mit_cmd.pos_ref
+
+    def push_feedback(self, sim: PiperSimInterface) -> None:
+        qpos_rad = []
+        for idx in self._qpos_indices:
+            qpos_rad.append(self.data.qpos[idx])
+        sim.publish_joint_feedback(qpos_rad)
+
+
+__all__.append("PiperMujocoAdapter")
