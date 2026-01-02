@@ -5,4 +5,3 @@ __all__ = [
     'C_PiperInterface',
     'C_PiperInterface_V2'
 ]
-
