@@ -1,11 +1,39 @@
 #!/usr/bin/env python3
 # -*-coding:utf8-*-
+"""
+Standalone simulation bridge for Piper arms over vcan/virtual CAN.
+
+This module intentionally lives outside the packaged `piper_sdk` namespace so it
+can be reused directly by simulator processes (e.g., MuJoCo) without coupling to
+the SDK import path layout. It decodes joint position (0x155–0x157) and MIT
+control (0x15A–0x15F) frames, updates cached targets, and publishes status and
+joint feedback frames back onto the bus.
+"""
 
 import math
 import threading
 from typing import Callable, Iterable, List, Optional
 
 import can
+
+from piper_sdk.piper_msgs.msg_v2 import (
+    ArmMessageMapping,
+    ArmMsgFeedBackJointStates,
+    ArmMsgFeedbackStatus,
+    ArmMsgFeedbackStatusEnum,
+    ArmMsgJointMitCtrl,
+    ArmMsgType,
+    PiperMessage,
+)
+from piper_sdk.protocol.protocol_v2 import C_PiperParserV2
+from piper_sdk.utils import LogLevel, LogManager, global_area
+
+try:
+    # Optional helper for socketcan vcan setup
+    from piper_sdk.demo.manage_vcan import create_vcan, is_vcan
+except Exception:  # pragma: no cover - helper is optional
+    create_vcan = None
+    is_vcan = None
 
 NUM_JOINTS = 6  # Piper arm joint count
 MOTOR_ID_OFFSET = 1
@@ -18,35 +46,13 @@ MIT_KP_RANGE = (0.0, 500.0)
 MIT_KD_RANGE = (-5.0, 5.0)
 MIT_TORQUE_RANGE = (-8.0, 8.0)
 
-from ..piper_msgs.msg_v2 import (
-    ArmMessageMapping,
-    ArmMsgFeedBackJointStates,
-    ArmMsgFeedbackStatus,
-    ArmMsgFeedbackStatusEnum,
-    ArmMsgJointCtrl,
-    ArmMsgJointMitCtrl,
-    ArmMsgType,
-    PiperMessage,
-)
-from ..protocol.protocol_v2 import C_PiperParserV2
-from ..utils import LogLevel, LogManager, global_area
-
-try:
-    # Optional helper for socketcan vcan setup
-    from ..demo.manage_vcan import create_vcan, is_vcan
-except Exception:  # pragma: no cover - helper is optional
-    create_vcan = None
-    is_vcan = None
-
 
 class PiperSimInterface:
     """
-    A lightweight simulation endpoint that exchanges Piper CAN frames over vcan.
+    A lightweight simulation endpoint exchanging Piper CAN frames over vcan.
 
-    The simulator listens for joint position (0x155-0x157) and MIT control
-    (0x15A-0x15F) messages, updates cached targets, and can publish feedback
-    frames (joint state + status) so the SDK sees a responsive arm. It is kept
-    intentionally small so it can be embedded in MuJoCo, gz-sim, Isaac Lab, etc.
+    Designed to be embedded in simulators (MuJoCo/gz-sim/Isaac Lab) while
+    retaining protocol compatibility with the SDK.
     """
 
     def __init__(
@@ -90,7 +96,6 @@ class PiperSimInterface:
         self._stop_event.clear()
         self._rx_thread = threading.Thread(target=self._read_loop, daemon=True)
         self._rx_thread.start()
-        # Publish an initial healthy status
         self.publish_status()
         self.publish_joint_feedback()
 
