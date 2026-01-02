@@ -7,7 +7,16 @@ from typing import Callable, Iterable, List, Optional
 
 import can
 
-NUM_JOINTS = 6
+NUM_JOINTS = 6  # Piper arm joint count
+MOTOR_ID_OFFSET = 1
+MIT_VEL_KP_KD_MASK = 0x0FFF
+MIT_NIBBLE_MASK = 0x0F
+MIT_FIELD_SHIFT = 4
+MIT_POS_RANGE = (-12.5, 12.5)
+MIT_VEL_RANGE = (-45.0, 45.0)
+MIT_KP_RANGE = (0.0, 500.0)
+MIT_KD_RANGE = (-5.0, 5.0)
+MIT_TORQUE_RANGE = (-8.0, 8.0)
 
 from ..piper_msgs.msg_v2 import (
     ArmMessageMapping,
@@ -199,7 +208,7 @@ class PiperSimInterface:
         self.publish_joint_feedback()
         if self._on_mit_cmd:
             # callbacks expect 1-based motor numbering to mirror the CAN IDs
-            self._on_mit_cmd(motor_idx + 1, mit_cmd)
+            self._on_mit_cmd(motor_idx + MOTOR_ID_OFFSET, mit_cmd)
         if self._on_position_cmd:
             self._on_position_cmd(joint_snapshot)
 
@@ -234,17 +243,17 @@ class PiperSimInterface:
 
     def _decode_mit(self, data) -> ArmMsgJointMitCtrl:
         pos_raw = self._parser.ConvertBytesToInt(data, 0, 2)
-        vel_raw = ((data[2] << 4) | (data[3] >> 4)) & 0xFFF
-        kp_raw = ((data[3] & 0x0F) << 8) | data[4]
-        kd_raw = ((data[5] << 4) | (data[6] >> 4)) & 0xFFF
-        torque_raw = ((data[6] & 0x0F) << 4) | ((data[7] >> 4) & 0x0F)
+        vel_raw = ((data[2] << MIT_FIELD_SHIFT) | (data[3] >> MIT_FIELD_SHIFT)) & MIT_VEL_KP_KD_MASK
+        kp_raw = ((data[3] & MIT_NIBBLE_MASK) << 8) | data[4]
+        kd_raw = ((data[5] << MIT_FIELD_SHIFT) | (data[6] >> MIT_FIELD_SHIFT)) & MIT_VEL_KP_KD_MASK
+        torque_raw = ((data[6] & MIT_NIBBLE_MASK) << MIT_FIELD_SHIFT) | ((data[7] >> MIT_FIELD_SHIFT) & MIT_NIBBLE_MASK)
         return ArmMsgJointMitCtrl(
-            pos_ref=self._uint_to_float(pos_raw, -12.5, 12.5, 16),
-            vel_ref=self._uint_to_float(vel_raw, -45.0, 45.0, 12),
-            kp=self._uint_to_float(kp_raw, 0.0, 500.0, 12),
-            kd=self._uint_to_float(kd_raw, -5.0, 5.0, 12),
-            t_ref=self._uint_to_float(torque_raw, -8.0, 8.0, 8),
-            crc=data[7] & 0x0F,
+            pos_ref=self._uint_to_float(pos_raw, *MIT_POS_RANGE, bits=16),
+            vel_ref=self._uint_to_float(vel_raw, *MIT_VEL_RANGE, bits=12),
+            kp=self._uint_to_float(kp_raw, *MIT_KP_RANGE, bits=12),
+            kd=self._uint_to_float(kd_raw, *MIT_KD_RANGE, bits=12),
+            t_ref=self._uint_to_float(torque_raw, *MIT_TORQUE_RANGE, bits=8),
+            crc=data[7] & MIT_NIBBLE_MASK,
         )
 
     def _uint_to_float(self, x_int: int, x_min: float, x_max: float, bits: int) -> float:
