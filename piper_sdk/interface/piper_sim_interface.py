@@ -74,7 +74,7 @@ class PiperSimInterface:
         self._bitrate = bitrate
         self._desired_bustype = bustype
         self._parser = C_PiperParserV2()
-        self._joint_targets: List[int] = [0] * NUM_JOINTS  # in 0.001 degree
+        self._joint_targets: List[int] = [0] * NUM_JOINTS  # in 0.001 degrees
         self._mit_targets: List[ArmMsgJointMitCtrl] = [ArmMsgJointMitCtrl() for _ in range(NUM_JOINTS)]
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
@@ -214,27 +214,34 @@ class PiperSimInterface:
 
     def _send_joint_feedback_frames(self) -> None:
         with self._lock:
-            joint_state = ArmMsgFeedBackJointStates(*self._joint_targets)
-        pairs = [
-            (ArmMsgType.PiperMsgJointFeedBack_12, (joint_state.joint_1, joint_state.joint_2)),
-            (ArmMsgType.PiperMsgJointFeedBack_34, (joint_state.joint_3, joint_state.joint_4)),
-            (ArmMsgType.PiperMsgJointFeedBack_56, (joint_state.joint_5, joint_state.joint_6)),
+            joint_state = list(self._joint_targets)
+        frames = [
+            (ArmMsgType.PiperMsgJointFeedBack_12, joint_state[0], joint_state[1]),
+            (ArmMsgType.PiperMsgJointFeedBack_34, joint_state[2], joint_state[3]),
+            (ArmMsgType.PiperMsgJointFeedBack_56, joint_state[4], joint_state[5]),
         ]
-        for msg_type, (j_a, j_b) in pairs:
-            fb = ArmMsgFeedBackJointStates(j_a, j_b, 0, 0, 0, 0)
-            msg = PiperMessage(type_=msg_type, arm_joint_feedback=fb)
-            self._send_can_message(msg)
+        for msg_type, joint_a, joint_b in frames:
+            arbitration_id = ArmMessageMapping.get_mapping(msg_type=msg_type)
+            data = self._parser.ConvertToList_32bit(joint_a) + self._parser.ConvertToList_32bit(joint_b)
+            self._send_frame(arbitration_id, data)
 
     def _send_can_message(self, msg: PiperMessage) -> None:
-        if not self._bus:
-            return
         tx_frame = can.Message(is_extended_id=False)
         try:
             self._parser.EncodeMessage(msg, tx_frame)
+            self._send_frame(tx_frame.arbitration_id, tx_frame.data)
+        except Exception as exc:  # pragma: no cover - backend specific
+            self.logger.error("Simulation send failed: %s", exc)
+
+    def _send_frame(self, arbitration_id: int, data) -> None:
+        if not self._bus:
+            return
+        try:
+            tx_frame = can.Message(arbitration_id=arbitration_id, data=data, is_extended_id=False)
             tx_frame.dlc = len(tx_frame.data)
             self._bus.send(tx_frame)
         except Exception as exc:  # pragma: no cover - backend specific
-            self.logger.error("Simulation send failed: %s", exc)
+            self.logger.error("Simulation bus send failed: %s", exc)
 
     # ---------------------------- helpers ------------------------------------
     def _decode_int32(self, data, start: int) -> int:
@@ -243,9 +250,11 @@ class PiperSimInterface:
 
     def _decode_mit(self, data) -> ArmMsgJointMitCtrl:
         pos_raw = self._parser.ConvertBytesToInt(data, 0, 2)
+        # MIT format packs 12-bit velocity and kp/kd values across byte boundaries
         vel_raw = ((data[2] << MIT_FIELD_SHIFT) | (data[3] >> MIT_FIELD_SHIFT)) & MIT_VEL_KP_KD_MASK
         kp_raw = ((data[3] & MIT_NIBBLE_MASK) << 8) | data[4]
         kd_raw = ((data[5] << MIT_FIELD_SHIFT) | (data[6] >> MIT_FIELD_SHIFT)) & MIT_VEL_KP_KD_MASK
+        # Torque lives in two 4-bit nibbles with a trailing CRC nibble
         torque_raw = ((data[6] & MIT_NIBBLE_MASK) << MIT_FIELD_SHIFT) | ((data[7] >> MIT_FIELD_SHIFT) & MIT_NIBBLE_MASK)
         return ArmMsgJointMitCtrl(
             pos_ref=self._uint_to_float(pos_raw, *MIT_POS_RANGE, bits=16),
