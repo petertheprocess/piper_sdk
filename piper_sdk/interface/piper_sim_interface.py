@@ -3,10 +3,11 @@
 
 import math
 import threading
-import time
 from typing import Callable, Iterable, List, Optional
 
 import can
+
+NUM_JOINTS = 6
 
 from ..piper_msgs.msg_v2 import (
     ArmMessageMapping,
@@ -64,8 +65,8 @@ class PiperSimInterface:
         self._bitrate = bitrate
         self._desired_bustype = bustype
         self._parser = C_PiperParserV2()
-        self._joint_targets: List[int] = [0] * 6  # in 0.001 degree
-        self._mit_targets: List[ArmMsgJointMitCtrl] = [ArmMsgJointMitCtrl() for _ in range(6)]
+        self._joint_targets: List[int] = [0] * NUM_JOINTS  # in 0.001 degree
+        self._mit_targets: List[ArmMsgJointMitCtrl] = [ArmMsgJointMitCtrl() for _ in range(NUM_JOINTS)]
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._rx_thread: Optional[threading.Thread] = None
@@ -197,6 +198,7 @@ class PiperSimInterface:
             joint_snapshot = list(self._joint_targets)
         self.publish_joint_feedback()
         if self._on_mit_cmd:
+            # callbacks expect 1-based motor numbering to mirror the CAN IDs
             self._on_mit_cmd(motor_idx + 1, mit_cmd)
         if self._on_position_cmd:
             self._on_position_cmd(joint_snapshot)
