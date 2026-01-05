@@ -287,7 +287,7 @@ impl PiperInterface {
     /// * `enable` - true to enable MIT mode, false for position/velocity mode
     pub fn enable_mit_mode(&self, enable: bool) -> Result<()> {
         let is_mit_mode = if enable { 0xAD } else { 0x00 };
-        let ctrl = MotionCtrl2::new(0x01, 0x04, 50, is_mit_mode);
+        let ctrl = MotionCtrl2::new(0x01, 0x04, 0, is_mit_mode);
         self.send_motion_ctrl_2(&ctrl)?;
         Ok(())
     }
@@ -333,13 +333,15 @@ impl PiperInterface {
     /// Enable or disable motors
     ///
     /// # Arguments
+    /// 0x02 enable; 0x01 disable
+    /// 0x07 for all motors
     ///
     /// * `enable` - true to enable, false to disable
     pub fn set_motor_enable(&self, enable: bool) -> Result<()> {
         let data = if enable {
-            vec![0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            vec![0x07, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         } else {
-            vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            vec![0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         };
         self.send_frame(CanId::ArmMotorEnableDisable, &data)?;
         Ok(())

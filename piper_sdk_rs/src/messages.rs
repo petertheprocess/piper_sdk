@@ -12,7 +12,7 @@ pub struct JointState {
 }
 
 impl JointState {
-    /// Create a new JointState with zero angles
+    /// Create a new JointState with zero angles, units in degrees
     pub fn new() -> Self {
         Self {
             angles: [0.0; 6],
@@ -26,13 +26,14 @@ impl JointState {
         if data_12.len() < 8 || data_34.len() < 8 || data_56.len() < 8 {
             return Err(Error::InvalidMessage("Invalid joint data length".to_string()));
         }
-        
-        let j1 = i32::from_le_bytes([data_12[0], data_12[1], data_12[2], data_12[3]]) as f32 * 0.001;
-        let j2 = i32::from_le_bytes([data_12[4], data_12[5], data_12[6], data_12[7]]) as f32 * 0.001;
-        let j3 = i32::from_le_bytes([data_34[0], data_34[1], data_34[2], data_34[3]]) as f32 * 0.001;
-        let j4 = i32::from_le_bytes([data_34[4], data_34[5], data_34[6], data_34[7]]) as f32 * 0.001;
-        let j5 = i32::from_le_bytes([data_56[0], data_56[1], data_56[2], data_56[3]]) as f32 * 0.001;
-        let j6 = i32::from_le_bytes([data_56[4], data_56[5], data_56[6], data_56[7]]) as f32 * 0.001;
+
+        // in degrees
+        let j1 = i32::from_be_bytes([data_12[0], data_12[1], data_12[2], data_12[3]]) as f32 * 0.001;
+        let j2 = i32::from_be_bytes([data_12[4], data_12[5], data_12[6], data_12[7]]) as f32 * 0.001;
+        let j3 = i32::from_be_bytes([data_34[0], data_34[1], data_34[2], data_34[3]]) as f32 * 0.001;
+        let j4 = i32::from_be_bytes([data_34[4], data_34[5], data_34[6], data_34[7]]) as f32 * 0.001;
+        let j5 = i32::from_be_bytes([data_56[0], data_56[1], data_56[2], data_56[3]]) as f32 * 0.001;
+        let j6 = i32::from_be_bytes([data_56[4], data_56[5], data_56[6], data_56[7]]) as f32 * 0.001;
         
         Ok(Self {
             angles: [j1, j2, j3, j4, j5, j6],
@@ -77,7 +78,7 @@ impl GripperState {
             return Err(Error::InvalidMessage("Invalid gripper data length".to_string()));
         }
         
-        let position = u16::from_le_bytes([data[0], data[1]]);
+        let position = u16::from_be_bytes([data[0], data[1]]);
         let status = data[2];
         
         Ok(Self {
@@ -125,12 +126,12 @@ impl EndPose {
             return Err(Error::InvalidMessage("Invalid end pose data length".to_string()));
         }
         
-        let x = i32::from_le_bytes([data_1[0], data_1[1], data_1[2], data_1[3]]) as f32 * 0.001;
-        let y = i32::from_le_bytes([data_1[4], data_1[5], data_1[6], data_1[7]]) as f32 * 0.001;
-        let z = i32::from_le_bytes([data_2[0], data_2[1], data_2[2], data_2[3]]) as f32 * 0.001;
-        let rx = i32::from_le_bytes([data_2[4], data_2[5], data_2[6], data_2[7]]) as f32 * 0.001;
-        let ry = i32::from_le_bytes([data_3[0], data_3[1], data_3[2], data_3[3]]) as f32 * 0.001;
-        let rz = i32::from_le_bytes([data_3[4], data_3[5], data_3[6], data_3[7]]) as f32 * 0.001;
+        let x = i32::from_be_bytes([data_1[0], data_1[1], data_1[2], data_1[3]]) as f32 * 0.001;
+        let y = i32::from_be_bytes([data_1[4], data_1[5], data_1[6], data_1[7]]) as f32 * 0.001;
+        let z = i32::from_be_bytes([data_2[0], data_2[1], data_2[2], data_2[3]]) as f32 * 0.001;
+        let rx = i32::from_be_bytes([data_2[4], data_2[5], data_2[6], data_2[7]]) as f32 * 0.001;
+        let ry = i32::from_be_bytes([data_3[0], data_3[1], data_3[2], data_3[3]]) as f32 * 0.001;
+        let rz = i32::from_be_bytes([data_3[4], data_3[5], data_3[6], data_3[7]]) as f32 * 0.001;
         
         Ok(Self {
             position: [x, y, z],
@@ -181,7 +182,7 @@ impl ArmStatus {
         
         let ctrl_mode = data[0];
         let arm_mode = data[1];
-        let err_code = u16::from_le_bytes([data[2], data[3]]);
+        let err_code = u16::from_be_bytes([data[2], data[3]]);
         
         Ok(Self {
             ctrl_mode,
@@ -224,16 +225,16 @@ impl JointControl {
         let j6 = (self.angles[5] * 1000.0) as i32;
         
         let mut data_12 = Vec::with_capacity(8);
-        data_12.extend_from_slice(&j1.to_le_bytes());
-        data_12.extend_from_slice(&j2.to_le_bytes());
+        data_12.extend_from_slice(&j1.to_be_bytes());
+        data_12.extend_from_slice(&j2.to_be_bytes());
         
         let mut data_34 = Vec::with_capacity(8);
-        data_34.extend_from_slice(&j3.to_le_bytes());
-        data_34.extend_from_slice(&j4.to_le_bytes());
+        data_34.extend_from_slice(&j3.to_be_bytes());
+        data_34.extend_from_slice(&j4.to_be_bytes());
         
         let mut data_56 = Vec::with_capacity(8);
-        data_56.extend_from_slice(&j5.to_le_bytes());
-        data_56.extend_from_slice(&j6.to_le_bytes());
+        data_56.extend_from_slice(&j5.to_be_bytes());
+        data_56.extend_from_slice(&j6.to_be_bytes());
         
         [data_12, data_34, data_56]
     }
@@ -396,16 +397,16 @@ impl EndPoseControl {
     /// Convert to CAN messages (3 messages for 6 DOF)
     pub fn to_can_data(&self) -> [Vec<u8>; 3] {
         let mut data_1 = Vec::with_capacity(8);
-        data_1.extend_from_slice(&self.position[0].to_le_bytes()); // X
-        data_1.extend_from_slice(&self.position[1].to_le_bytes()); // Y
+        data_1.extend_from_slice(&self.position[0].to_be_bytes()); // X
+        data_1.extend_from_slice(&self.position[1].to_be_bytes()); // Y
         
         let mut data_2 = Vec::with_capacity(8);
-        data_2.extend_from_slice(&self.position[2].to_le_bytes()); // Z
-        data_2.extend_from_slice(&self.orientation[0].to_le_bytes()); // RX
+        data_2.extend_from_slice(&self.position[2].to_be_bytes()); // Z
+        data_2.extend_from_slice(&self.orientation[0].to_be_bytes()); // RX
         
         let mut data_3 = Vec::with_capacity(8);
-        data_3.extend_from_slice(&self.orientation[1].to_le_bytes()); // RY
-        data_3.extend_from_slice(&self.orientation[2].to_le_bytes()); // RZ
+        data_3.extend_from_slice(&self.orientation[1].to_be_bytes()); // RY
+        data_3.extend_from_slice(&self.orientation[2].to_be_bytes()); // RZ
         
         [data_1, data_2, data_3]
     }
@@ -603,8 +604,8 @@ impl GripperControl {
     /// Convert to CAN message data
     pub fn to_can_data(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(4);
-        data.extend_from_slice(&self.position.to_le_bytes());
-        data.extend_from_slice(&self.speed.to_le_bytes());
+        data.extend_from_slice(&self.position.to_be_bytes());
+        data.extend_from_slice(&self.speed.to_be_bytes());
         data
     }
 }

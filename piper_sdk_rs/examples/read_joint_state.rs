@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     // Loop and read joint states
     loop {
         if let Some(joint_state) = piper.get_joint_state()? {
-            println!("Joint Angles (rad): [{:.4}, {:.4}, {:.4}, {:.4}, {:.4}, {:.4}]",
+            println!("Joint Angles (degree): [{:.4}, {:.4}, {:.4}, {:.4}, {:.4}, {:.4}]",
                 joint_state.angles[0],
                 joint_state.angles[1],
                 joint_state.angles[2],
