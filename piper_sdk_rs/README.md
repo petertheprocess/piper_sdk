@@ -1,3 +1,5 @@
+# !!!This project is vibe coded by copilot, it is very unstable and under testing and reviewing!!!
+
 # Piper Robot Arm SDK - Rust Edition
 
 This is a Rust implementation of the Piper robot arm SDK using the `socketcan` crate for CAN bus communication. It provides a safe and efficient interface for controlling Piper robot arms on Linux systems.
