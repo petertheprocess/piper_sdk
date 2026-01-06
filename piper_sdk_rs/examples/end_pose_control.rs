@@ -6,7 +6,7 @@
 //! Usage:
 //!   cargo run --example end_pose_control
 
-use piper_sdk_rs::{EndPoseControl, PiperInterface, Result};
+use piper_sdk_rs::{EndPoseControl, PiperInterface, Result, CtrlMode, MoveMode};
 use std::thread;
 use std::time::Duration;
 
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     
     // Set to position control mode (MOVE P)
     println!("Setting mode to Cartesian position control...");
-    piper.set_mode(0x01, 0x00, 50)?; // CAN mode, MOVE P, 50% speed
+    piper.set_mode(CtrlMode::CAN, MoveMode::P, 50)?; // CAN mode, MOVE P, 50% speed
     thread::sleep(Duration::from_millis(100));
     
     // Move to home position

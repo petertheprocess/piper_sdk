@@ -201,7 +201,7 @@ impl PiperInterface {
     ///
     /// * `control` - Joint control command with target angles
     pub fn send_joint_control(&self, control: &JointControl) -> Result<()> {
-        let can_data = control.to_can_data();
+        let can_data = control.to_bytes();
         
         // Send three CAN frames for 6 joints
         self.send_frame(CanId::ArmJointCtrl12, &can_data[0])?;
@@ -238,7 +238,7 @@ impl PiperInterface {
             ));
         }
         
-        let data = control.to_can_data();
+        let data = control.to_bytes();
         let can_id = match control.motor_num {
             1 => CanId::ArmJointMitCtrl1,
             2 => CanId::ArmJointMitCtrl2,
@@ -259,7 +259,7 @@ impl PiperInterface {
     ///
     /// * `control` - End pose control with position and orientation
     pub fn send_end_pose_control(&self, control: &EndPoseControl) -> Result<()> {
-        let can_data = control.to_can_data();
+        let can_data = control.to_bytes();
         
         // Send three CAN frames for X, Y, Z, RX, RY, RZ
         self.send_frame(CanId::ArmMotionCtrlCartesian1, &can_data[0])?;
@@ -275,7 +275,7 @@ impl PiperInterface {
     ///
     /// * `control` - Motion control settings including mode and MIT enable
     pub fn send_motion_ctrl_2(&self, control: &MotionCtrl2) -> Result<()> {
-        let data = control.to_can_data();
+        let data = control.to_bytes();
         self.send_frame(CanId::ArmMotionCtrl2, &data)?;
         Ok(())
     }
@@ -286,8 +286,8 @@ impl PiperInterface {
     ///
     /// * `enable` - true to enable MIT mode, false for position/velocity mode
     pub fn enable_mit_mode(&self, enable: bool) -> Result<()> {
-        let is_mit_mode = if enable { 0xAD } else { 0x00 };
-        let ctrl = MotionCtrl2::new(0x01, 0x04, 0, is_mit_mode);
+        let mit_mode = if enable { MitMode::MIT } else { MitMode::PosVel };
+        let ctrl = MotionCtrl2::new(CtrlMode::CAN, MoveMode::M, 0, mit_mode);
         self.send_motion_ctrl_2(&ctrl)?;
         Ok(())
     }
@@ -296,25 +296,28 @@ impl PiperInterface {
     ///
     /// # Arguments
     ///
-    /// * `ctrl_mode` - Control mode (0x00=standby, 0x01=CAN)
-    /// * `move_mode` - Move mode (0x00=P, 0x01=J, 0x02=L, 0x03=C, 0x04=M)
+    /// * `ctrl_mode` - Control mode (use `CtrlMode` enum)
+    /// * `move_mode` - Move mode (use `MoveMode` enum)
     /// * `speed_rate` - Speed percentage (0-100)
-    pub fn set_mode(&self, ctrl_mode: u8, move_mode: u8, speed_rate: u8) -> Result<()> {
-        let ctrl = MotionCtrl2::new(ctrl_mode, move_mode, speed_rate, 0x00);
+    pub fn set_mode(&self, ctrl_mode: CtrlMode, move_mode: MoveMode, speed_rate: u8) -> Result<()> {
+        let ctrl = MotionCtrl2::new(ctrl_mode, move_mode, speed_rate, MitMode::PosVel);
         self.send_motion_ctrl_2(&ctrl)?;
         Ok(())
     }
     
     /// Emergency stop
     pub fn emergency_stop(&self) -> Result<()> {
-        let data = vec![0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        // let data = vec![MotorEnableStatus::Disabled.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let mut data = [0u8; 8];
+        data[0] = MotorEnableStatus::Disabled.into();
         self.send_frame(CanId::ArmMotionCtrl1, &data)?;
         Ok(())
     }
     
     /// Reset the robot arm
     pub fn reset(&self) -> Result<()> {
-        let data = vec![0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let mut data = [0u8; 8];
+        data[0] = MotorEnableStatus::Disabled.into();
         self.send_frame(CanId::ArmMotionCtrl1, &data)?;
         Ok(())
     }
@@ -325,7 +328,7 @@ impl PiperInterface {
     ///
     /// * `control` - Gripper control command with target position and speed
     pub fn send_gripper_control(&self, control: &GripperControl) -> Result<()> {
-        let data = control.to_can_data();
+        let data = control.to_bytes();
         self.send_frame(CanId::ArmGripperCtrl, &data)?;
         Ok(())
     }
@@ -339,9 +342,9 @@ impl PiperInterface {
     /// * `enable` - true to enable, false to disable
     pub fn set_motor_enable(&self, enable: bool) -> Result<()> {
         let data = if enable {
-            vec![0x07, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            [0x07, MotorEnableStatus::Enabled.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         } else {
-            vec![0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            [0x07, MotorEnableStatus::Disabled.into(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         };
         self.send_frame(CanId::ArmMotorEnableDisable, &data)?;
         Ok(())
@@ -356,7 +359,7 @@ impl PiperInterface {
     /// * `param2` - Second parameter
     /// * `param3` - Third parameter
     pub fn set_master_slave_mode(&self, mode: u8, param1: u8, param2: u8, param3: u8) -> Result<()> {
-        let data = vec![mode, param1, param2, param3, 0x00, 0x00, 0x00, 0x00];
+        let data = [mode, param1, param2, param3, 0x00, 0x00, 0x00, 0x00];
         self.send_frame(CanId::ArmMasterSlaveModeConfig, &data)?;
         Ok(())
     }

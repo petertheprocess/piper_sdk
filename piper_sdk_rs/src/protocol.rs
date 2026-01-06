@@ -84,7 +84,7 @@ impl PiperProtocol {
                 self.try_complete_joint_state(&mut buffer)?;
             }
             Some(CanId::ArmGripperFeedback) => {
-                buffer.gripper_state = Some(GripperState::from_can_data(data)?);
+                buffer.gripper_state = Some(GripperState::from_bytes(data)?);
             }
             Some(CanId::ArmEndPoseFeedback1) => {
                 buffer.end_pose_data_1 = Some(data.to_vec());
@@ -99,45 +99,45 @@ impl PiperProtocol {
                 self.try_complete_end_pose(&mut buffer)?;
             }
             Some(CanId::ArmStatusFeedback) => {
-                buffer.arm_status = Some(ArmStatus::from_can_data(data)?);
+                buffer.arm_status = Some(ArmStatus::from_bytes(data)?);
             }
             // High-speed motor feedback (0x251-0x256)
             Some(CanId::ArmInfoHighSpdFeedback1) => {
-                buffer.motor_high_speed[0] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_high_speed[0] = Some(MotorHighSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoHighSpdFeedback2) => {
-                buffer.motor_high_speed[1] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_high_speed[1] = Some(MotorHighSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoHighSpdFeedback3) => {
-                buffer.motor_high_speed[2] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_high_speed[2] = Some(MotorHighSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoHighSpdFeedback4) => {
-                buffer.motor_high_speed[3] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_high_speed[3] = Some(MotorHighSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoHighSpdFeedback5) => {
-                buffer.motor_high_speed[4] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_high_speed[4] = Some(MotorHighSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoHighSpdFeedback6) => {
-                buffer.motor_high_speed[5] = Some(MotorHighSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_high_speed[5] = Some(MotorHighSpeedFeedback::from_bytes(can_id, data)?);
             }
             // Low-speed motor feedback (0x261-0x266)
             Some(CanId::ArmInfoLowSpdFeedback1) => {
-                buffer.motor_low_speed[0] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_low_speed[0] = Some(MotorLowSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoLowSpdFeedback2) => {
-                buffer.motor_low_speed[1] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_low_speed[1] = Some(MotorLowSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoLowSpdFeedback3) => {
-                buffer.motor_low_speed[2] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_low_speed[2] = Some(MotorLowSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoLowSpdFeedback4) => {
-                buffer.motor_low_speed[3] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_low_speed[3] = Some(MotorLowSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoLowSpdFeedback5) => {
-                buffer.motor_low_speed[4] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_low_speed[4] = Some(MotorLowSpeedFeedback::from_bytes(can_id, data)?);
             }
             Some(CanId::ArmInfoLowSpdFeedback6) => {
-                buffer.motor_low_speed[5] = Some(MotorLowSpeedFeedback::from_can_data(can_id, data)?);
+                buffer.motor_low_speed[5] = Some(MotorLowSpeedFeedback::from_bytes(can_id, data)?);
             }
             _ => {
                 // Unknown or unhandled message ID
@@ -155,7 +155,7 @@ impl PiperProtocol {
             &buffer.joint_data_34,
             &buffer.joint_data_56,
         ) {
-            buffer.joint_state = Some(JointState::from_can_data(data_12, data_34, data_56)?);
+            buffer.joint_state = Some(JointState::from_bytes(data_12, data_34, data_56)?);
         }
         Ok(())
     }
@@ -167,7 +167,7 @@ impl PiperProtocol {
             &buffer.end_pose_data_2,
             &buffer.end_pose_data_3,
         ) {
-            buffer.end_pose = Some(EndPose::from_can_data(data_1, data_2, data_3)?);
+            buffer.end_pose = Some(EndPose::from_bytes(data_1, data_2, data_3)?);
         }
         Ok(())
     }
