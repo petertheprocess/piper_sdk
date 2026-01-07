@@ -45,7 +45,7 @@ impl JointMitControl {
     /// * `vel_ref` - Target velocity in rad/s (-45.0 to 45.0)
     /// * `kp` - Proportional gain (0.0 to 500.0, typical: 10.0)
     /// * `kd` - Derivative gain (-5.0 to 5.0, typical: 0.8)
-    /// * `t_ref` - Target torque in Nm (-18.0 to 18.0)
+    /// * `t_ref` - Target torque in Nm (-8.0 to 8.0)
     pub fn new(motor_num: u8, pos_ref: f32, vel_ref: f32, kp: f32, kd: f32, t_ref: f32) -> Self {
         Self {
             motor_num,
@@ -65,7 +65,7 @@ impl JointMitControl {
         let vel_tmp = float_to_uint(self.vel_ref, -45.0, 45.0, 12);
         let kp_tmp = float_to_uint(self.kp, 0.0, 500.0, 12);
         let kd_tmp = float_to_uint(self.kd, -5.0, 5.0, 12);
-        let t_tmp = float_to_uint(self.t_ref, -18.0, 18.0, 8);
+        let t_tmp = float_to_uint(self.t_ref, -8.0, 8.0, 8);
         
         let mut data = [0u8; 8];
         

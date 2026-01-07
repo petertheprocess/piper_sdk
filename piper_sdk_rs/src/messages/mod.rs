@@ -105,7 +105,7 @@ pub struct JointMitControl {
     pub kp: f32,
     /// Derivative gain (range: -5.0 to 5.0, reference: 0.8)
     pub kd: f32,
-    /// Target torque in Nm (range: -18.0 to 18.0)
+    /// Target torque in Nm (range: -8.0 to 8.0)
     pub t_ref: f32,
 }
 
