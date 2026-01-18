@@ -59,6 +59,15 @@ impl JointMitControl {
     
     /// Convert to bytes for CAN message data with proper encoding
     /// Returns an 8-byte frame encoded per protocol
+    /// 
+    /// Protocol Format (8 bytes):
+    /// Byte 0-1: pos_ref[15:0] (16 bits)
+    /// Byte 2: vel_ref[11:4] (8 bits from 12-bit value)
+    /// Byte 3: vel_ref[3:0] | kp[11:8]
+    /// Byte 4: kp[7:0] (8 bits)
+    /// Byte 5: kd[11:4] (8 bits from 12-bit value)
+    /// Byte 6: kd[3:0] | t_ref[7:4]
+    /// Byte 7: t_ref[3:0] | CRC[3:0]
     pub fn to_bytes(&self) -> [u8; 8] {
         // Encode parameters with proper bit packing as per protocol
         let pos_tmp = float_to_uint(self.pos_ref, -12.5, 12.5, 16);
@@ -69,23 +78,23 @@ impl JointMitControl {
         
         let mut data = [0u8; 8];
         
-        // Byte 0-1: pos_ref (16 bits)
+        // Byte 0-1: pos_ref (16 bits, Big Endian)
         data[0] = ((pos_tmp >> 8) & 0xFF) as u8;
         data[1] = (pos_tmp & 0xFF) as u8;
         
-        // Byte 2: vel_ref[11:4]
+        // Byte 2: vel_ref[11:4] (upper 8 bits of 12-bit value)
         data[2] = ((vel_tmp >> 4) & 0xFF) as u8;
         
-        // Byte 3: vel_ref[3:0] | kp[11:8]
+        // Byte 3: vel_ref[3:0] (lower 4 bits) | kp[11:8] (upper 4 bits of 12-bit kp)
         data[3] = (((vel_tmp & 0x0F) << 4) | ((kp_tmp >> 8) & 0x0F)) as u8;
         
-        // Byte 4: kp[7:0]
+        // Byte 4: kp[7:0] (lower 8 bits of kp)
         data[4] = (kp_tmp & 0xFF) as u8;
         
-        // Byte 5: kd[11:4]
+        // Byte 5: kd[11:4] (upper 8 bits of 12-bit kd)
         data[5] = ((kd_tmp >> 4) & 0xFF) as u8;
         
-        // Byte 6: kd[3:0] | t_ref[7:4]
+        // Byte 6: kd[3:0] (lower 4 bits) | t_ref[7:4] (upper 4 bits of 8-bit torque)
         data[6] = (((kd_tmp & 0x0F) << 4) | ((t_tmp >> 4) & 0x0F)) as u8;
         
         // Byte 7: t_ref[3:0] | CRC[3:0]

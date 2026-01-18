@@ -1,11 +1,11 @@
 [package]
 name = "piper_sdk_rs"
-version = "0.1.0"
-edition = "2021"
-authors = ["Agilex Robotics Co., Ltd."]
+version = "0.3.0"
+edition = "2026"
+authors = ["Shaochang Tan"]
 description = "Rust SDK for Piper robot arm using socketcan"
 license = "MIT"
-repository = "https://github.com/agilexrobotics/piper_sdk"
+repository = "https://github.com/petertheprocess/piper_sdk"
 
 [dependencies]
 socketcan = "3.4"
@@ -15,3 +15,5 @@ log = "0.4"
 [dev-dependencies]
 env_logger = "0.11"
 ctrlc = "3.4"
+mujoco-rs = "2.2.2"
+rand = "^0.8"
