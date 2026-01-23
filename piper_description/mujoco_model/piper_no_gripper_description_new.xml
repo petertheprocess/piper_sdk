@@ -18,15 +18,15 @@
         <body name="dummy_link" pos="0 0 0">
             <body name="base_link" pos="0.0 0.0 0.0">
                 <inertial pos="-0.00473641164191482 2.56829134630247e-05 0.041451518036016" mass="1.02" diaginertia="0.00267433 0.00282612 0.00089624" />
-                <geom type="mesh" mesh="base_link" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+                <geom type="mesh" mesh="base_link" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" contype="0"/>
                 <body name="link1" pos="0.0 0.0 0.123">
                     <inertial pos="0.000121504734057468 0.000104632162460536 -0.00438597309559853" mass="0.71" diaginertia="0.00048916 0.00040472 0.00043982" />
                     <joint name="joint1" pos="0 0 0" axis="0.0 0.0 1.0" limited="true" range="-2.618 2.168" damping="5" />
-                    <geom type="mesh" mesh="link1" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+                    <geom type="mesh" mesh="link1" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" contype="0"/>
                     <body name="link2" pos="0.0 0.0 0.0" quat="0.048008436658572406 -0.04801344301314855 -0.7054761009125181 -0.7054738622662738">
                         <inertial pos="0.198666145229743 -0.010926924140076 0.00142121714502687" mass="1.17" diaginertia="0.00116918 0.06785384 0.06774489" />
                         <joint name="joint2" pos="0 0 0" axis="0.0 0.0 1.0" limited="true" range="0.0 3.14" damping="5" />
-                        <geom type="mesh" mesh="link2" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+                        <geom type="mesh" mesh="link2" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" contype="0"/>
                         <body name="link3" pos="0.28503 0.0 0.0" quat="0.6239962203797329 0.0 0.0 -0.7814273587172437">
                             <inertial pos="-0.0202737662122021 -0.133914995944595 -0.000458682652737356" mass="0.5" diaginertia="0.01361711 0.00045024 0.01380322" />
                             <joint name="joint3" pos="0 0 0" axis="0.0 0.0 1.0" limited="true" range="-2.967 0.0" damping="5" />
@@ -53,11 +53,12 @@
         </body>
     </worldbody>
     <actuator>
-        <position name="joint1" ctrllimited="true" ctrlrange="-2.618 2.168" joint="joint1" kp="10000" user="1" forcelimited="false" />
-        <position name="joint2" ctrllimited="true" ctrlrange="0.0 3.14" joint="joint2" kp="2000" user="1" forcelimited="false" />
-        <position name="joint3" ctrllimited="true" ctrlrange="-2.967 0.0" joint="joint3" kp="2000" user="1" forcelimited="false" />
-        <position name="joint4" ctrllimited="true" ctrlrange="-1.745 1.745" joint="joint4" kp="500" user="1" forcelimited="false" />
-        <position name="joint5" ctrllimited="true" ctrlrange="-1.22 1.22" joint="joint5" kp="200" user="1" forcelimited="false" />
-        <position name="joint6" ctrllimited="true" ctrlrange="-2.0944 2.0944" joint="joint6" kp="200" user="1" forcelimited="false" />
+    <!-- 1-3 2 Nm; 4-6 10 Nm -->
+        <motor name="joint1" joint="joint1" ctrlrange="-90.0 90.0" />
+        <motor name="joint2" joint="joint2" ctrlrange="-20.0 20.0" />
+        <motor name="joint3" joint="joint3" ctrlrange="-20.0 20.0" />
+        <motor name="joint4" joint="joint4" ctrlrange="-10.0 10.0" />
+        <motor name="joint5" joint="joint5" ctrlrange="-10.0 10.0" />
+        <motor name="joint6" joint="joint6" ctrlrange="-10.0 10.0" />
     </actuator>
 </mujoco>
