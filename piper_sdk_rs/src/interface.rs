@@ -147,30 +147,34 @@ impl PiperInterface {
     
     /// Get the latest joint state
     ///
-    /// Returns None if no joint state has been received yet
-    pub fn get_joint_state(&self) -> Result<Option<JointState>> {
-        Ok(self.protocol.get_joint_state())
+    /// Returns error if no joint state has been received yet
+    pub fn get_joint_state(&self) -> Result<JointState> {
+        self.protocol.get_joint_state()
+            .ok_or_else(|| Error::CanError("Joint state not available".to_string()))
     }
     
     /// Get the latest gripper state
     ///
-    /// Returns None if no gripper state has been received yet
-    pub fn get_gripper_state(&self) -> Result<Option<GripperState>> {
-        Ok(self.protocol.get_gripper_state())
+    /// Returns error if no gripper state has been received yet
+    pub fn get_gripper_state(&self) -> Result<GripperState> {
+        self.protocol.get_gripper_state()
+            .ok_or_else(|| Error::CanError("Gripper state not available".to_string()))
     }
     
     /// Get the latest end pose
     ///
-    /// Returns None if no end pose has been received yet
-    pub fn get_end_pose(&self) -> Result<Option<EndPose>> {
-        Ok(self.protocol.get_end_pose())
+    /// Returns error if no end pose has been received yet
+    pub fn get_end_pose(&self) -> Result<EndPose> {
+        self.protocol.get_end_pose()
+            .ok_or_else(|| Error::CanError("End pose not available".to_string()))
     }
     
     /// Get the latest arm status
     ///
-    /// Returns None if no arm status has been received yet
-    pub fn get_arm_status(&self) -> Result<Option<ArmStatus>> {
-        Ok(self.protocol.get_arm_status())
+    /// Returns error if no arm status has been received yet
+    pub fn get_arm_status(&self) -> Result<ArmStatus> {
+        self.protocol.get_arm_status()
+            .ok_or_else(|| Error::CanError("Arm status not available".to_string()))
     }
     
     /// Get high-speed feedback for a specific motor
@@ -179,20 +183,36 @@ impl PiperInterface {
     ///
     /// * `motor_num` - Motor number (1-6)
     ///
-    /// Returns None if no feedback has been received yet or motor_num is invalid
-    pub fn get_motor_high_speed(&self, motor_num: usize) -> Result<Option<MotorHighSpeedFeedback>> {
-        Ok(self.protocol.get_motor_high_speed(motor_num))
+    /// Returns error if no feedback has been received yet or motor_num is invalid
+    pub fn get_motor_high_speed(&self, motor_num: usize) -> Result<MotorHighSpeedFeedback> {
+        if motor_num < 1 || motor_num > 6 {
+            return Err(Error::CanError(format!("Invalid motor number: {}", motor_num)));
+        }
+        self.protocol.get_motor_high_speed(motor_num)
+            .ok_or_else(|| Error::CanError(format!("Motor {} high-speed feedback not available", motor_num)))
     }
-    
+
+    /// Get joint high-speed states for all joints
+    ///
+    /// Returns error if not all motor feedbacks are available
+    pub fn get_joint_high_speed_states(&self) -> Result<JointHighSpeedStates> {
+        self.protocol.get_joint_high_speed_states()
+            .ok_or_else(|| Error::CanError("Joint high-speed states not available (incomplete motor feedbacks)".to_string()))
+    }
+
     /// Get low-speed feedback for a specific motor
     ///
     /// # Arguments
     ///
     /// * `motor_num` - Motor number (1-6)
     ///
-    /// Returns None if no feedback has been received yet or motor_num is invalid
-    pub fn get_motor_low_speed(&self, motor_num: usize) -> Result<Option<MotorLowSpeedFeedback>> {
-        Ok(self.protocol.get_motor_low_speed(motor_num))
+    /// Returns error if no feedback has been received yet or motor_num is invalid
+    pub fn get_motor_low_speed(&self, motor_num: usize) -> Result<MotorLowSpeedFeedback> {
+        if motor_num < 1 || motor_num > 6 {
+            return Err(Error::CanError(format!("Invalid motor number: {}", motor_num)));
+        }
+        self.protocol.get_motor_low_speed(motor_num)
+            .ok_or_else(|| Error::CanError(format!("Motor {} low-speed feedback not available", motor_num)))
     }
     
     /// Send a joint control command

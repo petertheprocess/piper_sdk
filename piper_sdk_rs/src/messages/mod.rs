@@ -172,12 +172,27 @@ pub struct MotorHighSpeedFeedback {
     /// Motor speed in rad/s (unit: 0.001 rad/s)
     pub motor_speed: i16,
     /// Motor current in A (unit: 0.001 A)
-    pub current: u16,
-    /// Motor position in radians
+    pub current: i16,
+    /// Motor position in radians (unit: 0.001 rad)
     pub position: i32,
     /// Motor effort/torque in N/m (unit: 0.001 N/m)
     pub effort: f32,
     /// Timestamp
+    pub timestamp: f64,
+}
+
+/// Joints high-speed state information
+#[derive(Debug, Clone, Default)]
+pub struct JointHighSpeedStates {
+    /// q in radians [J1, J2, J3, J4, J5, J6]
+    pub q: [f64; 6],
+    /// dq in rad/s [J1, J2, J3, J4, J5, J6]
+    pub dq: [f64; 6],
+    /// current in A [J1, J2, J3, J4, J5, J6]
+    pub current: [f64; 6],
+    /// effort in N/m [J1, J2, J3, J4, J5, J6]
+    pub effort: [f64; 6],
+    /// timestamp in seconds
     pub timestamp: f64,
 }
 

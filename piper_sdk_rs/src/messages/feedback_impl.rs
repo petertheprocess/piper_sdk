@@ -2,8 +2,8 @@
 //!
 //! This module contains implementations for parsing CAN messages into structured data types
 
-use crate::error::{Error, Result};
-use super::{JointState, GripperState, EndPose, ArmStatus, MotorHighSpeedFeedback, MotorLowSpeedFeedback, CtrlMode, ArmStatusCode, MoveMode, TeachingState, MotionStatus};
+use crate::{error::{Error, Result}};
+use super::{JointState, GripperState, EndPose, ArmStatus, MotorHighSpeedFeedback, MotorLowSpeedFeedback, CtrlMode, ArmStatusCode, MoveMode, TeachingState, MotionStatus, JointHighSpeedStates};
 
 impl JointState {
     /// Parse joint state from CAN messages
@@ -123,6 +123,18 @@ impl ArmStatus {
     }
 }
 
+impl JointHighSpeedStates {
+    /// Create from borrowed array reference
+    pub fn from_motor_high_speed_feedbacks(feedbacks: &[MotorHighSpeedFeedback; 6]) -> Self {
+        let q: [f64; 6] = std::array::from_fn(|i| feedbacks[i].position as f64 * 0.001);
+        let dq: [f64; 6] = std::array::from_fn(|i| feedbacks[i].motor_speed as f64 * 0.001);
+        let current: [f64; 6] = std::array::from_fn(|i| feedbacks[i].current as f64 * 0.001);
+        let effort: [f64; 6] = std::array::from_fn(|i| feedbacks[i].effort as f64 * 0.001);
+        let timestamp: f64 = feedbacks[5].timestamp;
+        Self { q, dq, current, effort, timestamp }
+    }
+}
+
 impl MotorHighSpeedFeedback {
     /// Parse from CAN data
     pub fn from_bytes(can_id: u32, data: &[u8]) -> Result<Self> {
@@ -131,7 +143,7 @@ impl MotorHighSpeedFeedback {
         }
         
         let motor_speed = i16::from_be_bytes([data[0], data[1]]);
-        let current = u16::from_be_bytes([data[2], data[3]]);
+        let current = i16::from_be_bytes([data[2], data[3]]);
         let position = i32::from_be_bytes([data[4], data[5], data[6], data[7]]);
         
         // Calculate effort based on motor (joints 1-3 use coefficient 1.18125, joints 4-6 use 0.95844)

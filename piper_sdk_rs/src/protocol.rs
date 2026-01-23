@@ -199,6 +199,21 @@ impl PiperProtocol {
             .expect("Mutex poisoned - cannot access message buffer")
             .arm_status.clone()
     }
+
+    /// Get JointHighSpeedState for all joints
+    pub fn get_joint_high_speed_states(&self) -> Option<JointHighSpeedStates> {
+        let mut motor_feedbacks: [MotorHighSpeedFeedback; 6] = Default::default();
+
+        for motor_num in 1..=6 {
+            if let Some(motor_feedback) = self.get_motor_high_speed(motor_num) {
+                motor_feedbacks[motor_num - 1] = motor_feedback;
+            } else {
+                log::warn!("Motor high-speed feedback for motor {} is missing", motor_num);
+                return None;
+            }
+        }
+        Some(JointHighSpeedStates::from_motor_high_speed_feedbacks(&motor_feedbacks))
+    }
     
     /// Get high-speed feedback for a specific motor (1-6)
     pub fn get_motor_high_speed(&self, motor_num: usize) -> Option<MotorHighSpeedFeedback> {
