@@ -1,18 +1,18 @@
-//! Example: Gravity Compensation using MuJoCo
+//! Example: Impedance Control with Gravity Compensation using MuJoCo
 //!
-//! This example demonstrates how to use MuJoCo to compute gravity compensation
-//! torques for the robot arm. The gravity compensation allows the arm to be
-//! moved passively without falling due to gravity.
+//! This example demonstrates how to use impedance control combined with gravity
+//! compensation torques for the robot arm. The impedance control allows the arm
+//! to be compliant while gravity compensation prevents it from falling.
 //!
 //! The example uses MuJoCo physics engine to:
 //! 1. Load the robot mjcf model
 //! 2. Calculate gravity-induced torques at each joint using inverse dynamics
-//! 3. Send compensating torques via MIT control mode
+//! 3. Implement impedance control with gravity compensation via MIT mode
 //!
-//! Similar to the Python implementation using pinocchio, this uses the mujoco-rs
-//! engine's built-in inverse dynamics calculation.
-//!
-//! WARNING: MIT mode is an advanced feature. Ensure proper safety measures!
+//! Impedance control combines position tracking with compliance:
+//! - kp: Position stiffness (spring constant)
+//! - kd: Damping coefficient (viscous damping)
+//! - t_ff: Feedforward torque (gravity compensation)
 //!
 //! Usage:
 //!   cargo run --example gravity_compensation -- [can_interface] [xml_path]
@@ -29,7 +29,7 @@ use std::{array, thread};
 use std::time::Duration;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use nalgebra::{SMatrix};
+
 use mujoco_rs::prelude::*;
 
 // Motor torque reduction factors (empirically determined for safety)
@@ -93,7 +93,6 @@ fn expand_tilde(path: &str) -> PathBuf {
 /// This struct handles gravity compensation torque calculations using MuJoCo
 pub struct GravityCompensationCalculator {
     data: MjData<Rc<MjModel>>,
-    ee_body_id: usize,
 }
 
 impl GravityCompensationCalculator {
@@ -106,11 +105,8 @@ impl GravityCompensationCalculator {
                 format!("Failed to load MuJoCo model: {}", e)
             ))?);
         let data = MjData::new(model.clone());
-        let ee_body_id = model.body("link6").unwrap_or_else(|| {
-            panic!("End-effector body 'link6' not found in the model");
-        }).id;
 
-        Ok(GravityCompensationCalculator { data, ee_body_id })
+        Ok(GravityCompensationCalculator { data })
     }
 
     /// Compute gravity compensation torques for given joint angles and velocities
@@ -132,51 +128,14 @@ impl GravityCompensationCalculator {
         // Zero out accelerations for gravity-only computation
         self.data.qacc_mut()[0..6].fill(0.0);
 
-        // Forward the simulation to update kinematics and compute gravity effects
-        self.data.forward();
+        // Step the simulation to update kinematics and compute gravity effects
+        self.data.step();
 
         // Extract gravity compensation forces from qfrc_bias
         // qfrc_bias contains gravity and constraint forces computed at the given state
         let gravity_torques: [f64; 6] = array::from_fn(|i| self.data.qfrc_bias()[i]);
 
         gravity_torques
-    }
-
-    /// get gravity compensation torques and jacobian at provided state
-    pub fn get_tau_gravity_and_jacobian(&mut self, q: &[f64; 6], qd: &[f64; 6]) -> ([f64;6], Option<SMatrix<f64, 3, 6>>, Option<SMatrix<f64, 3, 6>>) {
-        // Set provided joint positions and velocities
-        self.data.qpos_mut()[0..6].copy_from_slice(q);
-        self.data.qvel_mut()[0..6].copy_from_slice(qd);
-
-        // Zero accelerations for gravity-only computation
-        self.data.qacc_mut()[0..6].fill(0.0);
-
-        // Forward kinematics to update internal kinematic caches
-        self.data.forward();
-
-        // Extract gravity compensation forces from qfrc_bias (size = nv)
-        let gravity_torques: [f64; 6] = array::from_fn(|i| self.data.qfrc_bias()[i]);
-
-        // Get jacobian buffers from MuJoCo (jacp and jacr as Vec<f64>)
-        let (jacp, jacr) = self.data.jac_body(true, true, self.ee_body_id as i32);
-
-        // Determine nv from data (qvel length)
-        let nv = self.data.qvel().len();
-
-        // We only support compile-time fixed 3x6 jacobians. Ensure nv == 6 and lengths match.
-        let jacp_nd = if nv == 6 && jacp.len() == 3 * nv {
-            Some(SMatrix::<f64, 3, 6>::from_row_slice(&jacp[..]))
-        } else {
-            None
-        };
-
-        let jacr_nd = if nv == 6 && jacr.len() == 3 * nv {
-            Some(SMatrix::<f64, 3, 6>::from_row_slice(&jacr[..]))
-        } else {
-            None
-        };
-        
-        (gravity_torques, jacp_nd, jacr_nd)
     }
 }
 
@@ -187,7 +146,7 @@ fn main() -> Result<()> {
     println!("=========================================");
     println!("Using MuJoCo for physics simulation\n");
 
-    let default_xml_path = "/home/tans/tans_ws/AgileX/piper_sdk/piper_description/mujoco_model/piper_no_gripper_description_new.xml";
+    let default_xml_path = "~/tans_ws/AgileX/piper_ros/src/piper_description/mujoco_model/piper_no_gripper_description_new.xml";
 
     // Get CAN interface name from command line or use default
     let can_interface = std::env::args()
@@ -307,8 +266,7 @@ fn main() -> Result<()> {
         });
 
         // Compute gravity compensation torques using MuJoCo
-        // let torques = gravity_calc.compute_torques(&angles_rad, &velocities_rad);            
-        let (torques, jacp_opt, jacr_opt) = gravity_calc.get_tau_gravity_and_jacobian(&angles_rad, &velocities_rad);
+        let torques = gravity_calc.compute_torques(&angles_rad, &velocities_rad);            
 
         let torques_reduced: [f32; 6] = array::from_fn(|i| {
             torques[i] as f32 * MOTOR_REDUCE_FACTORS[i]
@@ -317,18 +275,33 @@ fn main() -> Result<()> {
         // piper.enable_mit_mode(true)?;
         for (motor_num, _torque) in torques.iter().enumerate() {
             let motor_id = (motor_num + 1) as u8;
+            let kp = {
+                match motor_num {
+                    2 | 5 => 0.4,    // Higher stiffness for joints 4-6
+                    _ => 0.0,
+                }
+            };
+            let pos_ref = {
+                match motor_num {
+                    2 => -1.340,
+                    _ => 0.0,
+                }
+            };
 
-            // MIT control parameters:
-            // - No position control (pos_ref = 0)
-            // - No velocity control (vel_ref = 0)
-            // - Torque control only (t_ref = compensating torque)
+            // MIT control parameters with impedance control:
+            // - pos_ref: Current joint position (feedback control point)
+            // - vel_ref: Target velocity (currently 0)
+            // - kp: Position stiffness (impedance)
+            // - kd: Velocity damping (impedance)
+            // - t_ref: Gravity compensation torque feedforward
             let mit_ctrl = JointMitControl::new(
                 motor_id,
-                0.0,             // pos_ref: no position control
+                pos_ref,
                 0.0,             // vel_ref: no velocity control
-                0.0,             // kp: no position stiffness
-                0.0,             // kd: no velocity damping
+                kp,
+                0.03,             // kd: velocity damping
                 torques_reduced[motor_num],  // t_ref: gravity compensation torque (scaled)
+                // 0.0,             // t_ref: no torque feedforward for testing
             );
             piper.send_joint_mit_control(&mit_ctrl)?;
         }
