@@ -53,6 +53,30 @@ fn main() {
         data.step();
         viewer.render();
 
+        // --- 实时碰撞检测并打印 ---
+        let ncon = data.ncon();
+        if ncon > 0 {
+            println!("Contacts detected: {}", ncon);
+            // 遍历并打印每个 contact 的关键信息
+            let contacts = data.contact();
+            for i in 0..ncon as usize {
+                if let Some(c) = contacts.get(i) {
+                    // 大多数 wrapper 会以字段名直接暴露这些值；若编译失败我可以再调整
+                    let geom1 = c.geom1;
+                    let geom2 = c.geom2;
+                    let pos = c.pos; // 期望是 [f64; 3] 或类似切片
+                    let dist = c.dist;
+                    println!("  contact {}: geom{} <-> geom{} pos=[{:.3}, {:.3}, {:.3}] dist={:.6}",
+                        i, geom1, geom2, pos[0], pos[1], pos[2], dist
+                    );
+                }
+            }
+        } else {
+            // 可选：只在需要时取消注释以减少日志
+            // println!("No contacts");
+        }
+        // --- 碰撞检测结束 ---
+
         // get target position
         let target_pos = data.site_xpos()[site_id];
         let ee_pos = data.xpos()[ee_body_id];
@@ -70,7 +94,7 @@ fn main() {
 
         let mut tau_to_apply = vec![0.0; actuator_ids.len()];
 
-        let (jacp,_) = data.jac_body(true, false, ee_body_id as i32);
+        let (jacp,_ ) = data.jac_body(true, false, ee_body_id as i32);
 
         let jacp_nd: SMatrix<f64, 3, 6> = SMatrix::from_row_slice(&jacp[..]);
 
