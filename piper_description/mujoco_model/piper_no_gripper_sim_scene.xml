@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="piper_sim_scene">
+    <compiler angle="radian" coordinate="local" />
+    <size njmax="500" nconmax="100" />
+
+    <!-- 引用原始 Piper 模型 -->
+    <include file="piper_no_gripper_description_new.xml" />
+
+    <!-- 视觉与材质：简单的地面网格 -->
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.1 0.1 0.1" specular="0 0 0" />
+        <global azimuth="120" elevation="-20" />
+    </visual>
+
+    <asset>
+        <texture name="grid" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .15 .2" width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
+        <material name="grid" texture="grid" texrepeat="1 1" texuniform="true"/>
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 1.5" directional="true"/>
+        <!-- 地面：带网格纹理的平面（仅用于可视化，不参与碰撞） -->
+        <geom name="floor_visual" type="plane" size="1 1 0.01" material="grid" contype="0" conaffinity="0" rgba="0.95 0.95 0.95 1"/>
+
+        <!-- 碰撞地面：薄箱体用于碰撞检测（contype/conaffinity 非 0） -->
+        <geom name="floor_collision" type="box" pos="0 0 0" size="2 2 0.01" contype="1" conaffinity="1" friction="1 0.005 0.0001" rgba="0.8 0.8 0.8 1"/>
+
+        <!-- Piper 基座通过 include 引入，此处不重复定义 -->
+
+        <!-- 简化的目标：mocap=true，使其可在 viewer 中被拖拽（作为目标标记） -->
+        <body name="target" pos="0.3 0 0.3" quat="0 1 0 0" mocap="true">
+            <!-- 不参与碰撞（contype/conaffinity=0）或根据需要设置 -->
+            <geom type="box" size="0.05 0.05 0.05" contype="0" conaffinity="0" rgba="0.6 0.3 0.3 0.5"/>
+            <!-- site 用于快速获取位置或作为 IK 目标引用 -->
+            <site name="target_site" type="sphere" size="0.01" rgba="0 0 1 1"/>
+        </body>
+    </worldbody>
+
+</mujoco>

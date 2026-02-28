@@ -14,14 +14,24 @@ Test:
 
 This SDK is used to receive CAN data frames and process them into custom data types, excluding data offset frames.
 
+## SDK Versions
+
+This repository provides two SDK implementations:
+
+- **Python SDK** ([piper_sdk/](./piper_sdk/)) - Original Python implementation using python-can
+- **Rust SDK** ([piper_sdk_rs/](./piper_sdk_rs/)) - High-performance Rust implementation using socketcan-rs
+
 |Description | Documentation|
 |---|---|
+|**Rust SDK** (NEW)|[Rust SDK README](./piper_sdk_rs/README.md)|
 |Detailed description of interface functions|[Interface_V2 README](./asserts/V2/INTERFACE_V2.MD)|
 |Robot Arm DEMO|[piper_sdk/demo/V2](./piper_sdk/demo/V2/README.MD)|
 |Master-slave configuration and data reading for dual arms|[double_piper](./asserts/double_piper.MD)|
 |Open-source UI using pyQT5|[Piper_sdk_ui](<https://github.com/agilexrobotics/Piper_sdk_ui.git>)|
 |CHANGELOG|[CHANGELOG](./CHANGELOG.MD)|
 |Q&A|[Q&A](./asserts/Q&A.MD)|
+
+## Python SDK Installation
 
 <details open>
   <summary><h2 style="display:inline">1 Software Installation Method</h2></summary>

@@ -1,0 +1,22 @@
+[package]
+name = "piper_sdk_rs"
+version = "0.3.0"
+edition = "2024"
+authors = ["Shaochang Tan"]
+description = "Rust SDK for Piper robot arm using socketcan"
+license = "MIT"
+repository = "https://github.com/petertheprocess/piper_sdk"
+
+[dependencies]
+socketcan = "3.4"
+thiserror = "2.0"
+log = "0.4"
+nalgebra = "^0.32"
+rand = "0.9.2"
+
+[dev-dependencies]
+env_logger = "0.11"
+ctrlc = "3.4"
+mujoco-rs = "2.2.2"
+oxmpl = "0.6.0"
+
